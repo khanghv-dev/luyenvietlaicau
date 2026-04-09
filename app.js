@@ -293,19 +293,24 @@ function handleAnswer(clickedBtn, chosen, allOptions, q) {
   const isCorrect = chosen.isCorrect;
   if (isCorrect) state.score++;
 
+  // Update score display immediately
+  document.getElementById('quizScore').textContent = `✓ ${state.score}`;
+
   // Highlight options
   document.querySelectorAll('.option-btn').forEach((btn, i) => {
     if (allOptions[i].isCorrect) btn.classList.add('correct');
     else if (btn === clickedBtn && !isCorrect) btn.classList.add('wrong');
   });
 
-  // Feedback
+  // Basic feedback (shown immediately)
   const fb = document.getElementById('resultFeedback');
   fb.innerHTML = isCorrect
-    ? `<div class="fb-title">✅ Chính xác!</div><div class="fb-note">Rất tốt, tiếp tục phát huy nhé! 🎉</div>`
+    ? `<div class="fb-title">✅ Chính xác!</div>
+       <div class="fb-answer">✔ <strong>${q.correct}</strong></div>
+       ${state.apiKey ? '<div class="fb-ai-loading"><span class="ai-spinner"></span> AI đang giải thích…</div>' : '<div class="fb-note">Rất tốt, tiếp tục phát huy nhé! 🎉</div>'}`
     : `<div class="fb-title">❌ Chưa đúng</div>
        <div class="fb-answer">✔ Đáp án đúng: <strong>${q.correct}</strong></div>
-       <div class="fb-note">Ôn lại cấu trúc: ${q.structureName}</div>`;
+       ${state.apiKey ? '<div class="fb-ai-loading"><span class="ai-spinner"></span> AI đang giải thích…</div>' : `<div class="fb-note">Ôn lại cấu trúc: ${q.structureName}</div>`}`;
   fb.className = `result-feedback show ${isCorrect ? 'correct-fb' : 'wrong-fb'}`;
 
   // Record answer
@@ -318,7 +323,31 @@ function handleAnswer(clickedBtn, chosen, allOptions, q) {
   });
 
   document.getElementById('btnNext').style.display = 'flex';
+
+  // AI Explanation (async, non-blocking)
+  if (state.apiKey) {
+    explainAnswer(q.original, q.correct, chosen.text, isCorrect, q.structureName, state.apiKey)
+      .then(explanation => {
+        const mistakeHtml = (!isCorrect && explanation.mistake)
+          ? `<div class="fb-mistake">🚫 Lỗi sai: ${explanation.mistake}</div>`
+          : '';
+        fb.innerHTML = `
+          <div class="fb-title">${isCorrect ? '✅ Chính xác!' : '❌ Chưa đúng'}</div>
+          <div class="fb-answer">✔ Đáp án đúng: <strong>${q.correct}</strong></div>
+          <div class="fb-translation">📖 <em>${explanation.translation}</em></div>
+          ${mistakeHtml}
+          <div class="fb-why"><strong>💡 Tại sao đúng:</strong> ${explanation.why_correct}</div>
+          <div class="fb-tip">🔑 Mẹo nhớ: ${explanation.tip}</div>
+        `;
+      })
+      .catch(() => {
+        // Silently replace loading with basic note if AI fails
+        const existingLoading = fb.querySelector('.fb-ai-loading');
+        if (existingLoading) existingLoading.textContent = `Ôn lại cấu trúc: ${q.structureName}`;
+      });
+  }
 }
+
 
 function nextQuestion() {
   state.currentIndex++;

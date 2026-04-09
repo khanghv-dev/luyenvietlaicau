@@ -72,3 +72,51 @@ Return ONLY a valid JSON array (no extra text, no markdown):
     q.original && q.correct && Array.isArray(q.wrong) && q.wrong.length >= 3
   );
 }
+
+async function explainAnswer(original, correct, chosen, isCorrect, structureName, apiKey) {
+  const mistakePart = !isCorrect
+    ? `\n4. **Lỗi sai**: Giải thích ngắn lỗi ngữ pháp cụ thể trong câu sai: "${chosen}"`
+    : '';
+
+  const mistakeJson = !isCorrect ? `,\n  "mistake": "Giải thích lỗi sai cụ thể"` : '';
+
+  const prompt = `You are an English teacher helping Vietnamese students understand sentence transformations.
+
+Original sentence: "${original}"
+Grammar structure: "${structureName}"
+Correct answer: "${correct}"
+Student's answer: "${chosen}"
+Was student correct: ${isCorrect}
+
+Provide a concise response in Vietnamese with these parts:
+1. Translate the original English sentence to natural Vietnamese.
+2. Explain briefly WHY the correct answer is grammatically correct (focus on the specific rule).
+3. One short memory tip for this grammar structure.${mistakePart}
+
+Return ONLY valid JSON (no markdown):
+{
+  "translation": "Bản dịch tiếng Việt của câu gốc",
+  "why_correct": "Giải thích ngắn gọn tại sao đáp án đúng",
+  "tip": "Mẹo nhớ ngắn"${mistakeJson}
+}`;
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.7, maxOutputTokens: 512 }
+      })
+    }
+  );
+
+  if (!response.ok) throw new Error(`Gemini explain API ${response.status}`);
+  const data = await response.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+  const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error("Invalid JSON from Gemini explain");
+  return JSON.parse(jsonMatch[0]);
+}
