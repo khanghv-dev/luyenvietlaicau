@@ -47,10 +47,8 @@ function showScreen(id) {
 //  HOME SCREEN
 // ═══════════════════════════════════════════
 function initHome() {
-  // Restore saved API key
-  const saved = localStorage.getItem('gemini_api_key') || '';
-  document.getElementById('apiKeyInput').value = saved;
-  state.apiKey = saved;
+  // API key is never stored — user must type it each session
+  state.apiKey = '';
 
   // Mode toggle
   document.querySelectorAll('.mode-card').forEach(card => {
@@ -120,8 +118,7 @@ async function startSession() {
   btn.disabled = true;
   btn.textContent = 'Đang tải...';
 
-  // Save API key
-  if (state.apiKey) localStorage.setItem('gemini_api_key', state.apiKey);
+  // API key is intentionally NOT saved to storage
 
   state.currentIndex = 0;
   state.score = 0;
