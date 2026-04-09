@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Luyện Viết Lại Câu — AVCĐ1</title>
+  <meta name="description" content="Luyện tập viết lại câu tiếng Anh với AI sinh câu hỏi mới mỗi lần, tránh học vẹt." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div id="app">
+
+  <!-- ══════════════════════════════════
+       SCREEN: HOME
+  ══════════════════════════════════ -->
+  <div id="screenHome" class="screen">
+
+    <div class="logo">
+      <div class="logo-icon">✏️</div>
+      <h1>Luyện Viết Lại Câu</h1>
+      <p>19 cấu trúc · AI sinh câu mới · Tránh học vẹt</p>
+    </div>
+
+    <div class="card">
+      <!-- Mode -->
+      <div class="section-label">Chế độ làm bài</div>
+      <div class="mode-grid">
+        <div class="mode-card active" data-mode="bank">
+          <div class="mode-icon">📚</div>
+          <div class="mode-title">Ngân hàng câu hỏi</div>
+          <div class="mode-desc">96+ câu, xáo trộn ABCD</div>
+        </div>
+        <div class="mode-card" data-mode="ai">
+          <div class="mode-icon">✨</div>
+          <div class="mode-title">AI sinh câu mới</div>
+          <div class="mode-desc">Gemini tạo câu hỏi độc lập</div>
+        </div>
+      </div>
+
+      <!-- API Key (hidden by default) -->
+      <div id="apiKeySection" style="display:none; margin-top:18px;">
+        <div class="section-label">Gemini API Key</div>
+        <div class="input-group">
+          <input type="password" id="apiKeyInput" placeholder="AIza..." autocomplete="off" />
+          <button class="input-toggle" id="toggleKey" title="Hiện/Ẩn">👁</button>
+        </div>
+        <div class="api-note">
+          <span class="api-badge">⚠ Miễn phí</span>
+          Lấy key miễn phí tại
+          <a href="https://aistudio.google.com/app/apikey" target="_blank"
+             style="color:var(--accent2)">aistudio.google.com</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <!-- Structure -->
+      <div class="section-label">Cấu trúc</div>
+      <select id="structureSelect">
+        <option value="0">🎲 Ngẫu nhiên (tất cả 19)</option>
+      </select>
+
+      <!-- Difficulty -->
+      <div style="margin-top:18px;">
+        <div class="section-label">Mức độ</div>
+        <div class="chip-group">
+          <button class="chip active" data-diff="all">Tất cả</button>
+          <button class="chip" data-diff="easy">Dễ</button>
+          <button class="chip" data-diff="medium">Trung bình</button>
+          <button class="chip" data-diff="hard">Khó</button>
+        </div>
+      </div>
+
+      <!-- Count -->
+      <div style="margin-top:18px;">
+        <div class="section-label">Số câu</div>
+        <div class="chip-group">
+          <button class="chip" data-count="5">5</button>
+          <button class="chip active" data-count="10">10</button>
+          <button class="chip" data-count="20">20</button>
+          <button class="chip" data-count="30">30</button>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" id="btnStart">▶ Bắt đầu làm bài</button>
+
+    <button class="btn btn-ghost" id="btnHistory">📋 Xem lịch sử bài làm</button>
+
+  </div>
+
+  <!-- ══════════════════════════════════
+       SCREEN: LOADING (AI mode)
+  ══════════════════════════════════ -->
+  <div id="screenLoading" class="screen">
+    <div class="card" style="text-align:center; padding:48px 28px;">
+      <div style="font-size:2.2rem; margin-bottom:16px;">✨</div>
+      <div style="font-size:1.05rem; font-weight:600; margin-bottom:6px;">AI đang tạo câu hỏi…</div>
+      <div id="loadText" style="font-size:0.85rem; color:var(--text-muted); margin-bottom:24px;">Đang khởi tạo…</div>
+      <div class="progress-wrap" style="margin-bottom:8px;">
+        <div class="progress-bar" id="loadProgress" style="width:0%"></div>
+      </div>
+      <div style="font-size:0.78rem; color:var(--text-faint);">Câu hỏi AI sẽ không trùng lặp mỗi lần làm bài 🎉</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       SCREEN: QUIZ
+  ══════════════════════════════════ -->
+  <div id="screenQuiz" class="screen">
+
+    <!-- Top bar -->
+    <div style="display:flex; align-items:center; justify-content:space-between; width:100%;">
+      <button class="nav-btn" id="btnQuit">← Thoát</button>
+      <div class="score-pill" id="quizScore">✓ 0</div>
+    </div>
+
+    <!-- Progress -->
+    <div>
+      <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+        <span class="quiz-counter" id="quizCounter">Câu 1 / 10</span>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-bar" id="progressBar" style="width:0%"></div>
+      </div>
+    </div>
+
+    <!-- Question card -->
+    <div class="card">
+      <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:16px;">
+        <div class="structure-tag" id="structureTag"></div>
+        <span class="ai-badge" id="aiBadge" style="display:none;">✨ AI</span>
+      </div>
+
+      <div class="question-label">Câu gốc:</div>
+      <div class="original-sentence" id="originalSentence"></div>
+      <div class="instruction-text" id="instructionText"></div>
+
+      <div class="options" id="optionsContainer"></div>
+
+      <div class="result-feedback" id="resultFeedback"></div>
+    </div>
+
+    <button class="btn btn-primary" id="btnNext" style="display:none;">Câu tiếp theo →</button>
+
+  </div>
+
+  <!-- ══════════════════════════════════
+       SCREEN: SCORE
+  ══════════════════════════════════ -->
+  <div id="screenScore" class="screen">
+
+    <div class="card score-display">
+      <div class="score-ring">
+        <svg width="130" height="130" viewBox="0 0 130 130">
+          <circle class="score-ring-bg" cx="65" cy="65" r="54"/>
+          <circle class="score-ring-fg" id="scoreRingFg" cx="65" cy="65" r="54"
+            style="stroke-dasharray:339.3; stroke-dashoffset:339.3"/>
+        </svg>
+        <div class="score-number">
+          <span id="scorePercent">0%</span>
+          <small id="scoreLabel">0/0</small>
+        </div>
+      </div>
+      <div class="score-grade" id="scoreGrade"></div>
+      <div class="score-sub" id="scoreText"></div>
+    </div>
+
+    <div style="display:flex; gap:10px;">
+      <button class="btn btn-primary" id="btnRestart" style="flex:1;">🔁 Làm lại</button>
+      <button class="btn btn-ghost" id="btnGoHome" style="flex:1;">🏠 Trang chủ</button>
+    </div>
+
+    <!-- Review -->
+    <div class="card">
+      <div class="section-label" style="margin-bottom:14px;">Xem lại từng câu</div>
+      <div id="reviewList"></div>
+    </div>
+
+  </div>
+
+  <!-- ══════════════════════════════════
+       SCREEN: HISTORY
+  ══════════════════════════════════ -->
+  <div id="screenHistory" class="screen">
+
+    <div style="display:flex; align-items:center; justify-content:space-between; width:100%;">
+      <button class="nav-btn" id="btnGoHome2" onclick="showScreen('screenHome')">← Quay lại</button>
+      <button class="btn btn-ghost btn-sm" id="btnClearHistory">🗑 Xoá tất cả</button>
+    </div>
+
+    <div class="card">
+      <div class="section-label" style="margin-bottom:16px;">Lịch sử bài làm</div>
+      <div id="historyList"></div>
+    </div>
+
+  </div>
+
+</div><!-- #app -->
+
+<script src="questions.js"></script>
+<script src="gemini.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
