@@ -202,6 +202,7 @@ async function loadAIQuestions() {
     if (loadBar) loadBar.style.width = '90%';
   } catch (e) {
     console.warn('Batch AI generation failed:', e);
+    alert('Lỗi tạo câu hỏi từ AI (có thể do API key không đúng, hết hạn hoặc bị lỗi mạng): ' + e.message + '\n\nĐang chuyển sang dùng câu hỏi có sẵn từ ngân hàng.');
   }
 
   // Map AI results back, fallback to bank for any missing

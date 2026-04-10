@@ -41,13 +41,17 @@ Return ONLY a valid JSON array (no extra text, no markdown):
 ]`;
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 1.0, maxOutputTokens: 4096 }
+        generationConfig: { 
+          temperature: 1.0, 
+          maxOutputTokens: 4096,
+          responseMimeType: "application/json"
+        }
       })
     }
   );
@@ -58,14 +62,15 @@ Return ONLY a valid JSON array (no extra text, no markdown):
   }
 
   const data = await response.json();
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
 
-  // Strip markdown code blocks if present
-  const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-  const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
-  if (!jsonMatch) throw new Error("Invalid JSON array from Gemini");
+  let parsed = [];
+  try {
+    parsed = JSON.parse(text);
+  } catch (err) {
+    throw new Error("Lỗi đọc dữ liệu JSON từ AI: " + err.message);
+  }
 
-  const parsed = JSON.parse(jsonMatch[0]);
   if (!Array.isArray(parsed)) throw new Error("Expected JSON array");
 
   return parsed.filter(q =>
@@ -101,22 +106,28 @@ Return ONLY valid JSON (no markdown):
 }`;
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.7, maxOutputTokens: 512 }
+        generationConfig: { 
+          temperature: 0.7, 
+          maxOutputTokens: 512,
+          responseMimeType: "application/json"
+        }
       })
     }
   );
 
   if (!response.ok) throw new Error(`Gemini explain API ${response.status}`);
   const data = await response.json();
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-  const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-  const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error("Invalid JSON from Gemini explain");
-  return JSON.parse(jsonMatch[0]);
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+  
+  try {
+    return JSON.parse(text);
+  } catch (err) {
+    throw new Error("Lỗi đọc JSON từ AI: " + err.message);
+  }
 }
