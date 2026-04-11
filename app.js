@@ -122,8 +122,6 @@ async function startSession() {
   btn.disabled = true;
   btn.textContent = 'Đang tải...';
 
-  // API key is intentionally NOT saved to storage
-
   state.currentIndex = 0;
   state.score = 0;
   state.answers = [];
@@ -199,24 +197,35 @@ async function loadAIQuestions() {
       : state.difficulty
   }));
 
-  let aiQuestions = [];
-  try {
-    if (loadText) loadText.textContent = `Gemini đang tạo ${target} câu hỏi (1 lần gọi)…`;
-    aiQuestions = await generateQuestionsFromGeminiBatch(requests, state.apiKey);
-    if (loadBar) loadBar.style.width = '90%';
-  } catch (e) {
-    console.warn('Batch AI generation failed:', e);
-    const msg = e.message || '';
-    let userMsg;
-    if (msg.includes('429') || msg.toLowerCase().includes('quota')) {
-      userMsg = '⏳ API key của bạn đã dùng hết lượt miễn phí trong phút này (giới hạn ~15 lượt/phút của Google).\n\n✅ Bạn chỉ cần chờ 1 phút rồi thử lại là được!\n\nHiện tại đang chuyển sang dùng câu hỏi từ ngân hàng.';
-    } else if (msg.includes('403') || msg.toLowerCase().includes('api key')) {
-      userMsg = '🔑 API key không hợp lệ hoặc chưa được kích hoạt.\n\nVui lòng kiểm tra lại API key tại: aistudio.google.com\n\nĐang chuyển sang dùng câu hỏi từ ngân hàng.';
-    } else {
-      userMsg = '🌐 Lỗi kết nối đến AI: ' + msg.slice(0, 120) + '\n\nĐang chuyển sang dùng câu hỏi từ ngân hàng.';
+  // Inner helper: call AI, auto-countdown on quota exceeded
+  async function tryLoadAI(isRetry) {
+    if (loadText) loadText.textContent = isRetry ? 'Đang thử lại…' : `Gemini đang tạo ${target} câu hỏi…`;
+    try {
+      const questions = await generateQuestionsFromGeminiBatch(requests, state.apiKey);
+      if (loadBar) loadBar.style.width = '90%';
+      return questions;
+    } catch (e) {
+      const msg = e.message || '';
+      if (msg.includes('429') || msg.toLowerCase().includes('quota')) {
+        if (isRetry) return []; // second failure, give up silently
+        // Auto-countdown 62 seconds then retry — no alert, no fallback yet
+        const WAIT = 62;
+        for (let s = WAIT; s > 0; s--) {
+          if (loadText) loadText.textContent = `⏳ Hết lượt/phút của Google — tự thử lại sau ${s}s…`;
+          if (loadBar) loadBar.style.width = '10%';
+          await new Promise(r => setTimeout(r, 1000));
+        }
+        return tryLoadAI(true);
+      } else if (msg.includes('403') || msg.toLowerCase().includes('invalid')) {
+        alert('🔑 API key không hợp lệ hoặc chưa được kích hoạt.\n\nKiểm tra lại tại: aistudio.google.com\n\nĐang dùng câu hỏi từ ngân hàng.');
+      } else {
+        alert('🌐 Lỗi kết nối AI: ' + msg.slice(0, 120) + '\n\nĐang dùng câu hỏi từ ngân hàng.');
+      }
+      return [];
     }
-    alert(userMsg);
   }
+
+  const aiQuestions = await tryLoadAI(false);
 
   // Map AI results back, fallback to bank for any missing
   const sessionQuestions = [];
@@ -358,7 +367,7 @@ function handleAnswer(clickedBtn, chosen, allOptions, q) {
         console.error('AI Explain error:', err);
         const existingLoading = fb.querySelector('.fb-ai-loading');
         if (existingLoading) {
-          existingLoading.innerHTML = `<span style="color:#ef4444; font-size:0.95em;">⚠️ Lỗi kết nối AI (Không thể tải giải thích chi tiết). Bạn hãy tự ôn lại cấu trúc: <strong>${q.structureName}</strong> nhé.</span>`;
+          existingLoading.innerHTML = `<span style="color:#ef4444; font-size:0.95em;">⚠️ Không thể tải giải thích AI. Ôn lại cấu trúc: <strong>${q.structureName}</strong></span>`;
           existingLoading.style.animation = 'none';
           existingLoading.style.opacity = '1';
         }
