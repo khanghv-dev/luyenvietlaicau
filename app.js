@@ -226,9 +226,9 @@ async function loadAIQuestions() {
         }
         return tryLoadAI(true);
       } else if (msg.includes('403') || msg.toLowerCase().includes('invalid')) {
-        alert('🔑 API key không hợp lệ hoặc chưa được kích hoạt.\n\nKiểm tra lại tại: aistudio.google.com\n\nĐang dùng câu hỏi từ ngân hàng.');
+        alert('🔑 API key không hợp lệ hoặc chưa được kích hoạt.\n\nKiểm tra lại tại: aistudio.google.com');
       } else {
-        alert('🌐 Lỗi kết nối AI: ' + msg.slice(0, 120) + '\n\nĐang dùng câu hỏi từ ngân hàng.');
+        alert('🌐 Lỗi tạo câu hỏi AI: ' + msg.slice(0, 120));
       }
       return [];
     }
@@ -236,16 +236,10 @@ async function loadAIQuestions() {
 
   const aiQuestions = await tryLoadAI(false);
 
-// Map AI results back, fallback to bank for any missing
+  // Map AI results mapping without fallback
   const sessionQuestions = [];
-  const fallbackPool = shuffle([...QUESTIONS]);
 
-  // Handle case where AI completely failed and we fall back to bank entirely
-  if (aiQuestions.length === 0) {
-    if (loadText) loadText.textContent = `Không có kết quả từ AI, dùng câu hỏi ngân hàng...`;
-  }
-
-  for (let i = 0; i < target; i++) {
+  for (let i = 0; i < aiQuestions.length; i++) {
     const req = requests[i];
     const aiQ = aiQuestions[i];
     if (aiQ) {
@@ -254,30 +248,14 @@ async function loadAIQuestions() {
         question: aiQ.question,
         correct: aiQ.correct,
         wrong: aiQ.wrong,
-        structureName: req.structure.name,
+        structureName: req ? req.structure.name : 'Máy tạo tự động',
         source: 'ai'
       });
-    } else {
-      // Fallback to bank (pick without replacement to avoid repeating)
-      const poolForStruct = fallbackPool.filter(q => q.structure === req.structure.id);
-      const q = poolForStruct.length > 0 ? poolForStruct[0] : fallbackPool[0];
-      
-      // Remove chosen from the fallback pool so it can't be picked again
-      if (q) {
-        const dropIndex = fallbackPool.indexOf(q);
-        if (dropIndex > -1) fallbackPool.splice(dropIndex, 1);
-        
-        sessionQuestions.push({
-          original: q.original, question: q.question,
-          correct: q.correct, wrong: q.wrong,
-          structureName: req.structure.name, source: 'bank'
-        });
-      }
     }
   }
 
   if (loadBar) loadBar.style.width = '100%';
-  if (loadText) loadText.textContent = `Tạo xong ${target} câu hỏi!`;
+  if (loadText) loadText.textContent = `Tạo xong ${sessionQuestions.length} câu hỏi!`;
 
   state.sessionQuestions = sessionQuestions;
 }
