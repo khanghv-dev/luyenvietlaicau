@@ -40,59 +40,68 @@ Return ONLY a valid JSON array (no extra text, no markdown):
   }
 ]`;
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { 
-          temperature: 0.7, 
-          maxOutputTokens: 4096,
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "ARRAY",
-            items: {
-              type: "OBJECT",
-              properties: {
-                original: { type: "STRING" },
-                question: { type: "STRING" },
-                correct: { type: "STRING" },
-                wrong: { type: "ARRAY", items: { type: "STRING" } }
-              },
-              required: ["original", "question", "correct", "wrong"]
-            }
-          }
+  const requestBody = JSON.stringify({
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: { 
+      temperature: 0.7, 
+      maxOutputTokens: 4096,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: "ARRAY",
+        items: {
+          type: "OBJECT",
+          properties: {
+            original: { type: "STRING" },
+            question: { type: "STRING" },
+            correct: { type: "STRING" },
+            wrong: { type: "ARRAY", items: { type: "STRING" } }
+          },
+          required: ["original", "question", "correct", "wrong"]
         }
-      })
+      }
     }
-  );
+  });
 
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Gemini API ${response.status}: ${errText.slice(0, 200)}`);
+  let lastError;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: requestBody
+        }
+      );
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Gemini API ${response.status}: ${errText.slice(0, 200)}`);
+      }
+
+      const data = await response.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
+      
+      // Safe extraction if wrapped in markdown
+      const match = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+      const cleanText = match ? match[1].trim() : text.trim();
+
+      const parsed = JSON.parse(cleanText);
+      if (!Array.isArray(parsed)) throw new Error("Expected JSON array");
+
+      const validQs = parsed.filter(q =>
+        q.original && q.correct && Array.isArray(q.wrong) && q.wrong.length >= 3
+      );
+      
+      if (validQs.length === 0) throw new Error("Thử lại do AI trả về mảng rỗng");
+      return validQs;
+    } catch (err) {
+      lastError = err;
+      if (attempt < 3) await new Promise(r => setTimeout(r, 1000));
+    }
   }
 
-  const data = await response.json();
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
-  
-  // Safe extraction if wrapped in markdown
-  const match = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-  const cleanText = match ? match[1].trim() : text.trim();
-
-  let parsed = [];
-  try {
-    parsed = JSON.parse(cleanText);
-  } catch (err) {
-    throw new Error("Lỗi đọc dữ liệu JSON từ AI: " + err.message);
-  }
-
-  if (!Array.isArray(parsed)) throw new Error("Expected JSON array");
-
-  return parsed.filter(q =>
-    q.original && q.correct && Array.isArray(q.wrong) && q.wrong.length >= 3
-  );
+  throw new Error("Lỗi sau 3 lần gọi API: " + lastError.message);
 }
 
 async function explainAnswer(original, correct, chosen, isCorrect, structureName, apiKey) {
@@ -122,42 +131,51 @@ Return ONLY valid JSON (no markdown):
   "tip": "Mẹo nhớ ngắn"${mistakeJson}
 }`;
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { 
-          temperature: 0.4, 
-          maxOutputTokens: 512,
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "OBJECT",
-            properties: {
-              translation: { type: "STRING" },
-              why_correct: { type: "STRING" },
-              tip: { type: "STRING" },
-              mistake: { type: "STRING" }
-            },
-            required: ["translation", "why_correct", "tip"]
-          }
-        }
-      })
+  const requestBody = JSON.stringify({
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: { 
+      temperature: 0.4, 
+      maxOutputTokens: 512,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: "OBJECT",
+        properties: {
+          translation: { type: "STRING" },
+          why_correct: { type: "STRING" },
+          tip: { type: "STRING" },
+          mistake: { type: "STRING" }
+        },
+        required: ["translation", "why_correct", "tip"]
+      }
     }
-  );
+  });
 
-  if (!response.ok) throw new Error(`Gemini explain API ${response.status}`);
-  const data = await response.json();
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-  
-  const match = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-  const cleanText = match ? match[1].trim() : text.trim();
-  
-  try {
-    return JSON.parse(cleanText);
-  } catch (err) {
-    throw new Error("Lỗi đọc JSON từ AI: " + err.message);
+  let lastError;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: requestBody
+        }
+      );
+
+      if (!response.ok) throw new Error(`Gemini explain API ${response.status}`);
+      
+      const data = await response.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+      
+      const match = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+      const cleanText = match ? match[1].trim() : text.trim();
+      
+      return JSON.parse(cleanText);
+    } catch (err) {
+      lastError = err;
+      if (attempt < 3) await new Promise(r => setTimeout(r, 1000));
+    }
   }
+  
+  throw new Error("Lỗi đọc JSON từ AI sau 3 lần thử: " + lastError.message);
 }
