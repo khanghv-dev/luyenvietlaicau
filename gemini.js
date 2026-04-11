@@ -29,6 +29,7 @@ function extractJson(text) {
 
 /**
  * Calls the Gemini API with auto-retry (up to maxAttempts times).
+ * On 429 quota errors, waits 62 seconds before retrying.
  */
 async function callGemini(apiKey, prompt, generationConfig, maxAttempts = 3) {
   let lastError;
@@ -45,7 +46,15 @@ async function callGemini(apiKey, prompt, generationConfig, maxAttempts = 3) {
 
       if (!res.ok) {
         const errText = await res.text().catch(() => "");
-        throw new Error(`Gemini ${res.status}: ${errText.slice(0, 150)}`);
+        const status = res.status;
+        if (status === 429) {
+          // Wait 62 seconds then retry
+          if (attempt < maxAttempts) {
+            await new Promise(r => setTimeout(r, 62000));
+            continue;
+          }
+        }
+        throw new Error(`Gemini ${status}: ${errText.slice(0, 150)}`);
       }
 
       const data = await res.json();
@@ -54,7 +63,10 @@ async function callGemini(apiKey, prompt, generationConfig, maxAttempts = 3) {
       return text;
     } catch (err) {
       lastError = err;
-      if (attempt < maxAttempts) await new Promise(r => setTimeout(r, 1200 * attempt));
+      // Only short-delay retry for non-quota errors
+      if (attempt < maxAttempts && !err.message.includes('429')) {
+        await new Promise(r => setTimeout(r, 1200 * attempt));
+      }
     }
   }
   throw lastError;
