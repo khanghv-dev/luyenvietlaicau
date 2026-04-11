@@ -345,10 +345,14 @@ function handleAnswer(clickedBtn, chosen, allOptions, q) {
           <div class="fb-tip">🔑 Mẹo nhớ: ${explanation.tip}</div>
         `;
       })
-      .catch(() => {
-        // Silently replace loading with basic note if AI fails
+      .catch((err) => {
+        console.error('AI Explain error:', err);
         const existingLoading = fb.querySelector('.fb-ai-loading');
-        if (existingLoading) existingLoading.textContent = `Ôn lại cấu trúc: ${q.structureName}`;
+        if (existingLoading) {
+          existingLoading.innerHTML = `<span style="color:#ef4444; font-size:0.95em;">⚠️ Lỗi kết nối AI (Không thể tải giải thích chi tiết). Bạn hãy tự ôn lại cấu trúc: <strong>${q.structureName}</strong> nhé.</span>`;
+          existingLoading.style.animation = 'none';
+          existingLoading.style.opacity = '1';
+        }
       });
   }
 }

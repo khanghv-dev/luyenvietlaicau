@@ -63,10 +63,11 @@ Return ONLY a valid JSON array (no extra text, no markdown):
 
   const data = await response.json();
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
+  const cleanText = text.replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim();
 
   let parsed = [];
   try {
-    parsed = JSON.parse(text);
+    parsed = JSON.parse(cleanText);
   } catch (err) {
     throw new Error("Lỗi đọc dữ liệu JSON từ AI: " + err.message);
   }
@@ -124,9 +125,10 @@ Return ONLY valid JSON (no markdown):
   if (!response.ok) throw new Error(`Gemini explain API ${response.status}`);
   const data = await response.json();
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+  const cleanText = text.replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim();
   
   try {
-    return JSON.parse(text);
+    return JSON.parse(cleanText);
   } catch (err) {
     throw new Error("Lỗi đọc JSON từ AI: " + err.message);
   }
