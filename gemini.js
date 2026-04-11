@@ -99,6 +99,8 @@ Generate exactly ${requests.length} multiple-choice sentence transformation ques
 ${questionList}
 
 Rules:
+- DO NOT copy the example sentences (VD). You MUST create 100% NEW and ORIGINAL sentences.
+- Ensure every generated question rigidly tests the EXACT grammar structure requested. 
 - Use real-life contexts: school, family, food, travel, sports, hobbies, work
 - Make ALL original sentences different from each other
 - Each question must have exactly 3 wrong options with plausible but specific grammar errors
