@@ -206,7 +206,16 @@ async function loadAIQuestions() {
     if (loadBar) loadBar.style.width = '90%';
   } catch (e) {
     console.warn('Batch AI generation failed:', e);
-    alert('Lỗi tạo câu hỏi từ AI (có thể do API key không đúng, hết hạn hoặc bị lỗi mạng): ' + e.message + '\n\nĐang chuyển sang dùng câu hỏi có sẵn từ ngân hàng.');
+    const msg = e.message || '';
+    let userMsg;
+    if (msg.includes('429') || msg.toLowerCase().includes('quota')) {
+      userMsg = '⏳ API key của bạn đã dùng hết lượt miễn phí trong phút này (giới hạn ~15 lượt/phút của Google).\n\n✅ Bạn chỉ cần chờ 1 phút rồi thử lại là được!\n\nHiện tại đang chuyển sang dùng câu hỏi từ ngân hàng.';
+    } else if (msg.includes('403') || msg.toLowerCase().includes('api key')) {
+      userMsg = '🔑 API key không hợp lệ hoặc chưa được kích hoạt.\n\nVui lòng kiểm tra lại API key tại: aistudio.google.com\n\nĐang chuyển sang dùng câu hỏi từ ngân hàng.';
+    } else {
+      userMsg = '🌐 Lỗi kết nối đến AI: ' + msg.slice(0, 120) + '\n\nĐang chuyển sang dùng câu hỏi từ ngân hàng.';
+    }
+    alert(userMsg);
   }
 
   // Map AI results back, fallback to bank for any missing
