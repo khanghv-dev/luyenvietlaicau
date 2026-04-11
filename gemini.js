@@ -48,9 +48,22 @@ Return ONLY a valid JSON array (no extra text, no markdown):
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: { 
-          temperature: 1.0, 
+          temperature: 0.7, 
           maxOutputTokens: 4096,
-          responseMimeType: "application/json"
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: {
+                original: { type: "STRING" },
+                question: { type: "STRING" },
+                correct: { type: "STRING" },
+                wrong: { type: "ARRAY", items: { type: "STRING" } }
+              },
+              required: ["original", "question", "correct", "wrong"]
+            }
+          }
         }
       })
     }
@@ -63,7 +76,10 @@ Return ONLY a valid JSON array (no extra text, no markdown):
 
   const data = await response.json();
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
-  const cleanText = text.replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim();
+  
+  // Safe extraction if wrapped in markdown
+  const match = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  const cleanText = match ? match[1].trim() : text.trim();
 
   let parsed = [];
   try {
@@ -114,9 +130,19 @@ Return ONLY valid JSON (no markdown):
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: { 
-          temperature: 0.7, 
+          temperature: 0.4, 
           maxOutputTokens: 512,
-          responseMimeType: "application/json"
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "OBJECT",
+            properties: {
+              translation: { type: "STRING" },
+              why_correct: { type: "STRING" },
+              tip: { type: "STRING" },
+              mistake: { type: "STRING" }
+            },
+            required: ["translation", "why_correct", "tip"]
+          }
         }
       })
     }
@@ -125,7 +151,9 @@ Return ONLY valid JSON (no markdown):
   if (!response.ok) throw new Error(`Gemini explain API ${response.status}`);
   const data = await response.json();
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-  const cleanText = text.replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim();
+  
+  const match = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  const cleanText = match ? match[1].trim() : text.trim();
   
   try {
     return JSON.parse(cleanText);
