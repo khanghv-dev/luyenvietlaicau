@@ -190,12 +190,21 @@ async function loadAIQuestions() {
     : Array(target).fill(STRUCTURES.find(s => s.id === state.structureId));
 
   const diffChoices = ['easy', 'medium', 'hard'];
-  const requests = Array.from({ length: target }, (_, i) => ({
-    structure: structList[i % structList.length],
-    difficulty: state.difficulty === 'all'
-      ? diffChoices[i % 3]
-      : state.difficulty
-  }));
+  const requests = Array.from({ length: target }, (_, i) => {
+    const struct = structList[i % structList.length];
+    const diff = state.difficulty === 'all' ? diffChoices[i % 3] : state.difficulty;
+    
+    // Attach an example from the library so Gemini knows exactly what this structure implies
+    const bankQs = QUESTIONS.filter(q => q.structure === struct.id);
+    const exampleQ = bankQs.length > 0 ? bankQs[Math.floor(Math.random() * bankQs.length)] : null;
+    const exampleText = exampleQ ? ` (VD: "${exampleQ.original}" -> "${exampleQ.correct}")` : '';
+
+    return {
+      structure: struct,
+      difficulty: diff,
+      example: exampleText
+    };
+  });
 
   // Inner helper: call AI, auto-countdown on quota exceeded
   async function tryLoadAI(isRetry) {

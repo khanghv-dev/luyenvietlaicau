@@ -89,7 +89,7 @@ async function generateQuestionsFromGeminiBatch(requests, apiKey) {
   };
 
   const questionList = requests.map((r, i) =>
-    `${i + 1}. Cấu trúc: "${r.structure.name}" | Độ khó: ${diffMap[r.difficulty] || r.difficulty}`
+    `${i + 1}. Cấu trúc: "${r.structure.name}"${r.example || ''} | Độ khó: ${diffMap[r.difficulty] || r.difficulty}`
   ).join("\n");
 
   const prompt = `You are an English teacher creating sentence transformation exercises for Vietnamese high school students preparing for the AVCĐ1 exam.
