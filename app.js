@@ -227,8 +227,15 @@ async function loadAIQuestions() {
 
   const aiQuestions = await tryLoadAI(false);
 
-  // Map AI results back, fallback to bank for any missing
+// Map AI results back, fallback to bank for any missing
   const sessionQuestions = [];
+  const fallbackPool = shuffle([...QUESTIONS]);
+
+  // Handle case where AI completely failed and we fall back to bank entirely
+  if (aiQuestions.length === 0) {
+    if (loadText) loadText.textContent = `Không có kết quả từ AI, dùng câu hỏi ngân hàng...`;
+  }
+
   for (let i = 0; i < target; i++) {
     const req = requests[i];
     const aiQ = aiQuestions[i];
@@ -242,14 +249,21 @@ async function loadAIQuestions() {
         source: 'ai'
       });
     } else {
-      // Fallback to bank
-      const pool = QUESTIONS.filter(q => q.structure === req.structure.id);
-      const q = pool.length ? shuffle(pool)[0] : shuffle(QUESTIONS)[0];
-      sessionQuestions.push({
-        original: q.original, question: q.question,
-        correct: q.correct, wrong: q.wrong,
-        structureName: req.structure.name, source: 'bank'
-      });
+      // Fallback to bank (pick without replacement to avoid repeating)
+      const poolForStruct = fallbackPool.filter(q => q.structure === req.structure.id);
+      const q = poolForStruct.length > 0 ? poolForStruct[0] : fallbackPool[0];
+      
+      // Remove chosen from the fallback pool so it can't be picked again
+      if (q) {
+        const dropIndex = fallbackPool.indexOf(q);
+        if (dropIndex > -1) fallbackPool.splice(dropIndex, 1);
+        
+        sessionQuestions.push({
+          original: q.original, question: q.question,
+          correct: q.correct, wrong: q.wrong,
+          structureName: req.structure.name, source: 'bank'
+        });
+      }
     }
   }
 
