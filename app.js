@@ -47,8 +47,11 @@ function showScreen(id) {
 //  HOME SCREEN
 // ═══════════════════════════════════════════
 function initHome() {
-  // API key is never stored — user must type it each session
-  state.apiKey = '';
+  // Load saved API key automatically
+  const savedKey = localStorage.getItem('gemini_api_key') || '';
+  state.apiKey = savedKey;
+  const apiKeyInput = document.getElementById('apiKeyInput');
+  if (apiKeyInput) apiKeyInput.value = savedKey;
 
   // Mode toggle
   document.querySelectorAll('.mode-card').forEach(card => {
@@ -96,6 +99,7 @@ function initHome() {
 
   document.getElementById('apiKeyInput').addEventListener('input', e => {
     state.apiKey = e.target.value.trim();
+    localStorage.setItem('gemini_api_key', state.apiKey);
   });
 
   // History nav
